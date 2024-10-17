@@ -1,10 +1,15 @@
 const utils = require('@percy/sdk-utils');
-
+const {execSync} = require('child_process')
 // Collect client and environment information
 const sdkPkg = require('./package.json');
-const webdriverioPkg = require('webdriverio/package.json');
+const installedPackages = listPackages();
+const wdioPackage = installedPackages.find((p)=>p.startsWith('webdriverio'))
+if(!wdioPackage){
+  throw new Error("webdriverio not installed")
+}
 const CLIENT_INFO = `${sdkPkg.name}/${sdkPkg.version}`;
-const ENV_INFO = `${webdriverioPkg.name}/${webdriverioPkg.version}`;
+const ENV_INFO = wdioPackage.replace('@','/');
+
 
 // Take a DOM snapshot and post it to the snapshot endpoint
 module.exports = function percySnapshot(b, name, options) {
@@ -60,3 +65,24 @@ module.exports.request = async function request(data) {
 module.exports.isPercyEnabled = async function isPercyEnabled(driver) {
   return await utils.isPercyEnabled();
 };
+
+function listPackages(){
+  try {
+    // Execute the npm list command
+    const output = execSync('npm list --depth=0', { encoding: 'utf-8' });
+
+    // Split the output into lines and filter out the relevant lines
+    const packageLines = output.split('\n').filter(line => line.includes('@'));
+
+    // Map the lines to extract package names and versions
+    const packages = packageLines.map(line => {
+        // Match the package name and version
+        const match = line.match(/([a-zA-Z0-9@\-_/]+)@([0-9.]+)/);
+        return match ? match[0] : null; // Return the full package name and version
+    }).filter(Boolean); // Filter out any null values
+
+    return packages
+} catch (error) {
+    console.error('Error executing npm list:', error.message);
+}
+}
